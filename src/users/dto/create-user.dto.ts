@@ -1,4 +1,4 @@
-import { IsString, IsEmail, Length, IsArray, ArrayNotEmpty, IsInt } from 'class-validator';
+import { IsString, IsEmail, Length, IsArray, ArrayNotEmpty, IsInt, MinLength } from 'class-validator';
 import { Unique } from 'typeorm';
 
 export class CreateUserDto {
@@ -10,6 +10,10 @@ export class CreateUserDto {
 
   @IsEmail()
   email: string;
+
+  @IsString()
+  @MinLength(10)
+  password: string;
 
   @IsString()
   @Length(7, 20)

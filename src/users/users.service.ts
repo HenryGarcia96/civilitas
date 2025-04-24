@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { In, Repository } from 'typeorm';
 import { Role } from 'src/roles/entities/role.entity';
-
+import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UsersService {
   constructor(
@@ -19,14 +19,19 @@ export class UsersService {
   async create(createUserDto: CreateUserDto) {
      // Verificar si el correo electrónico ya existe en la base de datos
      const existingUser = await this.userRepository.findOne({ where: { email: createUserDto.email } });
+
      if (existingUser) {
        throw new ConflictException('El correo electrónico ya está registrado');
      }
 
     const roles = await this.roleRepository.findBy({id: In(createUserDto.roles)});
 
+    
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
     const user = this.userRepository.create({
       ...createUserDto,
+      password: hashedPassword,
       roles,
     });
 
