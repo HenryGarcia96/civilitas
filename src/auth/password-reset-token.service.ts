@@ -17,6 +17,25 @@ export class PasswordResetTokenService{
         await this.tokenRepo.save(resetToken);
     }
 
+    async findAll(userId?:string){
+        if(userId){
+            return this.tokenRepo.find({
+                where: { user: { id: +userId}},
+                relations: ['user']
+            });
+        }
+
+        return this.tokenRepo.find({ relations: ['user']});
+    }
+
+    async delete(id:string){
+        const result = await this.tokenRepo.delete(id);
+        return {
+            deleted: result.affected === 1,
+            id
+        };
+    }
+
     async findValid(token:string): Promise<PasswordResetToken | null>{
         return await this.tokenRepo.findOne({
             where: {
@@ -30,6 +49,7 @@ export class PasswordResetTokenService{
 
     async markAsUsed(token: PasswordResetToken): Promise <void>{
         token.used = true;
+        token.usedAt = new Date(); 
         await this.tokenRepo.save(token);
     }
 }

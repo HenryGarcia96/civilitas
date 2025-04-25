@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -47,16 +47,21 @@ export class UsersService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {
-    const user = await this.userRepository.findOneBy({id});
+    const user = await this.userRepository.findOne({
+      where: {id},
+      relations: ['roles'],
+    });
 
-    if(!user) throw new NotFoundException('Usuario no encontrado');
+    if(!user) throw new HttpException('Usuario no encontrado', HttpStatus.BAD_REQUEST);
 
-    if(updateUserDto.roles){
-      const roles = await this.roleRepository.findBy({id: In(updateUserDto.roles)});
+    const { roles: roleIds, ...rest } = updateUserDto;
+
+    Object.assign(user, rest);
+
+    if (roleIds) {
+      const roles = await this.roleRepository.findBy({ id: In(roleIds) });
       user.roles = roles;
     }
-
-    Object.assign(user, updateUserDto);
 
     return this.userRepository.save(user);
   }

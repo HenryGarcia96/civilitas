@@ -123,7 +123,7 @@ export class AuthService {
 
         const resetToken = await this.tokenService.findValid(token);
 
-        if(!resetToken) throw new HttpException('Token expired', HttpStatus.BAD_REQUEST);
+        if(!resetToken) throw new HttpException('Token expired or used', HttpStatus.BAD_REQUEST);
 
         let payload:any;
 

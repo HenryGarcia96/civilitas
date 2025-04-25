@@ -1,7 +1,12 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { PasswordResetTokenService } from './password-reset-token.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -19,6 +24,7 @@ export class AuthController {
     }
 
     @Post('forgot-password')
+
     @HttpCode(HttpStatus.ACCEPTED)
     async resetPassword(@Body() body:{ email: string}){
         return this.authService.sendPasswordResetLink(body.email);
@@ -28,5 +34,22 @@ export class AuthController {
     @HttpCode(HttpStatus.ACCEPTED)
     async changePassword(@Body() dto:ChangePasswordDto){
         return await this.authService.changePassword(dto);
+    }
+}
+
+@Controller('auth/admin/password-reset-tokens')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+export class PasswordResetTokenAdminController{
+    constructor(private readonly tokenService:PasswordResetTokenService){}
+
+    @Get()
+    async findAll(@Query('user_id') userId?:string){
+        return this.tokenService.findAll(userId);
+    }
+
+    @Delete(':id')
+    async remove(@Param('id') id: string){
+        return this.tokenService.delete(id);
     }
 }
