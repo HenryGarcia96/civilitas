@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
 import { MailService } from 'src/mail/mail.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { PasswordResetTokenService } from './password-reset-token.service';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
         private readonly userService: UsersService,
         private readonly mailService: MailService,
         private readonly jwtService: JwtService,
+        private readonly tokenService: PasswordResetTokenService,
     ){}
 
     async validateUser(email:string, password:string): Promise<any>{
@@ -102,12 +104,15 @@ export class AuthService {
         if(!user) throw new HttpException('User not found', HttpStatus.BAD_REQUEST);
 
         const payload = {email:user.email, sub:user.id};
+
+        const expiresIn = 60 * 60;
         
         const resetToken = this.jwtService.sign(payload, {
             secret: process.env.JWT_SECRET,
-            expiresIn: '1h'
+            expiresIn
         });
 
+        await this.tokenService.create(user, resetToken, expiresIn);
         await this.mailService.sendPasswordResetEmail(user.email, resetToken);
 
         return 'Password reset email sent successfully';
@@ -115,6 +120,10 @@ export class AuthService {
 
     public async changePassword(dto: ChangePasswordDto): Promise<string>{
         const {token, newPassword} = dto;
+
+        const resetToken = await this.tokenService.findValid(token);
+
+        if(!resetToken) throw new HttpException('Token expired', HttpStatus.BAD_REQUEST);
 
         let payload:any;
 
