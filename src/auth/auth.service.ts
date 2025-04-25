@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpCode, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
@@ -6,12 +6,17 @@ import { Repository } from 'typeorm';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
+import { UsersService } from 'src/users/users.service';
+import { MailService } from 'src/mail/mail.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
     constructor(
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
+        private readonly userService: UsersService,
+        private readonly mailService: MailService,
         private readonly jwtService: JwtService,
     ){}
 
@@ -89,6 +94,45 @@ export class AuthService {
             console.log(error);
             throw new HttpException('Refresh token expired or invalid', HttpStatus.UNAUTHORIZED);
         }
+    }
+
+    public async sendPasswordResetLink(email:string): Promise<string>{
+        const user = await this.userRepository.findOne({ where: { email } });
+
+        if(!user) throw new HttpException('User not found', HttpStatus.BAD_REQUEST);
+
+        const payload = {email:user.email, sub:user.id};
+        
+        const resetToken = this.jwtService.sign(payload, {
+            secret: process.env.JWT_SECRET,
+            expiresIn: '1h'
+        });
+
+        await this.mailService.sendPasswordResetEmail(user.email, resetToken);
+
+        return 'Password reset email sent successfully';
+    }
+
+    public async changePassword(dto: ChangePasswordDto): Promise<string>{
+        const {token, newPassword} = dto;
+
+        let payload:any;
+
+        try {
+            payload = this.jwtService.verify(token, { secret: process.env.JWT_SECRET});
+        } catch (error) {
+            throw new HttpException('Invalid token', HttpStatus.BAD_REQUEST);
+        }
+
+        const user = await this.userService.findOne(payload.sub);
+        
+        if(!user) throw new HttpException('User not found', HttpStatus.FORBIDDEN);
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await this.userRepository.update(user.id, {password: hashedPassword});
+
+        return 'Password update successfully';
     }
 
     public async generateTokens(payload: JwtPayload){

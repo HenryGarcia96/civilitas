@@ -7,6 +7,8 @@ import { RolesModule } from './roles/roles.module';
 import { AuthModule } from './auth/auth.module';
 import { ormConfig } from './config/ormconfig';
 import { ConfigModule } from '@nestjs/config';
+import { MailService } from './mail/mail.service';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -18,8 +20,9 @@ import { ConfigModule } from '@nestjs/config';
     UsersModule,
     RolesModule,
     AuthModule,
+    MailModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, MailService],
 })
 export class AppModule {}

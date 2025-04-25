@@ -10,16 +10,5 @@ export const ormConfig: DataSourceOptions = {
   password: 'henrygodev',
   database: 'civilitas',
   entities: [User, Role],
-  synchronize: true, // ⚠️ Solo para desarrollo
+  synchronize: true, 
 };
-// TypeOrmModule.forRoot({
-//       type: 'postgres',
-//       host: 'localhost',
-//       port: 5432,
-//       username: 'postgres',
-//       password: 'henrygodev',
-//       database: 'civilitas',
-//       entities: [__dirname + '/**/*.entity{.ts, .js}'],
-//       synchronize: true,
-//       autoLoadEntities: true
-//     }),
