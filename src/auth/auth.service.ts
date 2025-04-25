@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
@@ -27,25 +27,87 @@ export class AuthService {
     }
 
     async login(loginDto: LoginDto){
-        const { email, password } = loginDto;
-
-        // Buscar el usuario por email
-        const user = await this.userRepository.findOne({ where: { email } });
-
-        if (!user) {
-        throw new Error('Credenciales invalidas');
+        try {
+            // Usar propiedades de la interfaz
+            const { email, password } = loginDto;
+    
+            //  Buscar al usuario por su correo
+            const user = await this.userRepository.findOne({ where: { email } });
+    
+            if (!user) throw new HttpException('Email not found', HttpStatus.BAD_REQUEST);
+    
+            // Cotejar contraseña recibida contra propiedad guardada
+            const passwordMatches = await bcrypt.compare(password, user.password);
+    
+            if (!passwordMatches) throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+    
+            // JWToken
+            const payload: JwtPayload = { email: user.email, sub: user.id };
+    
+            const {accessToken, refreshToken} = await this.generateTokens(payload);
+    
+            // Insertar token de refresco al user
+            const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    
+            await this.userRepository.update(user.id, {refreshToken: hashedRefreshToken});
+    
+            // Regresar tokens de acceso
+            return { accessToken, refreshToken};
+        } catch (error) {
+            console.log(error);
+            throw new HttpException('Refresh token expired or invalid', HttpStatus.UNAUTHORIZED);
         }
+    }
 
-        // Verificar la contraseña
-        const passwordMatches = await bcrypt.compare(password, user.password);
+    async refreshToken(refreshToken: string){
+        try {
+             
+            const payload = this.jwtService.verify( refreshToken, {
+                secret: 'mySecretKey',
+            });
 
-        if (!passwordMatches) {
-        throw new Error('Credenciales invalidas');
+            // Verificar que el refresh token sea el mismo 
+            const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+
+            if(!user || !user.refreshToken) throw new HttpException('User not found or token invalid', HttpStatus.BAD_REQUEST);
+
+            // Comparar token recibido y BD
+            const refreshTokenMatches = await bcrypt.compare(refreshToken, user.refreshToken);
+
+            if(!refreshTokenMatches) throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
+
+            // Generar token
+            const {accessToken, refreshToken: newRefreshToken} = await this.generateTokens(payload);
+
+            const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10);
+
+            await this.userRepository.update(user.id, {refreshToken: hashedNewRefreshToken})
+
+            return { accessToken, refreshToken: newRefreshToken};
+
+        } catch (error) {
+            console.log(error);
+            throw new HttpException('Refresh token expired or invalid', HttpStatus.UNAUTHORIZED);
         }
+    }
 
-        const payload: JwtPayload = { email: user.email, sub: user.id };
-        return {
-            access_token: this.jwtService.sign(payload),
-        };
+    public async generateTokens(payload: JwtPayload){
+        const accessToken = this.jwtService.sign({
+            email: payload.email,
+            sub: payload.sub
+        }, {
+            secret: 'mySecretKey',
+            expiresIn: '15m',
+        });
+    
+        const refreshToken = this.jwtService.sign({
+            email: payload.email,
+            sub: payload.sub
+        }, {
+            secret: 'mySecretKey',
+            expiresIn: '30d',
+        });
+        
+        return { accessToken, refreshToken };
     }
 }
