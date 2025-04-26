@@ -10,6 +10,7 @@ import { UsersService } from 'src/users/users.service';
 import { MailService } from 'src/mail/mail.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { PasswordResetTokenService } from './password-reset-token.service';
+import { UserSession } from 'src/sessions/entities/user-session.entity';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +21,8 @@ export class AuthService {
         private readonly mailService: MailService,
         private readonly jwtService: JwtService,
         private readonly tokenService: PasswordResetTokenService,
+        @InjectRepository(UserSession)
+        private readonly sessionRepository: Repository<UserSession>
     ){}
 
     async validateUser(email:string, password:string): Promise<any>{
@@ -33,7 +36,7 @@ export class AuthService {
         return null;
     }
 
-    async login(loginDto: LoginDto){
+    async login(loginDto: LoginDto, userAgent: string, ipAddress: string){
         try {
             // Usar propiedades de la interfaz
             const { email, password } = loginDto;
@@ -49,14 +52,21 @@ export class AuthService {
             if (!passwordMatches) throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
     
             // JWToken
-            const payload: JwtPayload = { email: user.email, sub: user.id };
+            const payload: JwtPayload = this.createPayload(user);
     
             const {accessToken, refreshToken} = await this.generateTokens(payload);
     
             // Insertar token de refresco al user
             const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-    
-            await this.userRepository.update(user.id, {refreshToken: hashedRefreshToken});
+
+            const session = this.sessionRepository.create({
+               user,
+               refreshToken:  hashedRefreshToken,
+               userAgent,
+               ipAddress,
+               expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+            });
+            await this.sessionRepository.save(session);
     
             // Regresar tokens de acceso
             return { accessToken, refreshToken};
@@ -66,31 +76,52 @@ export class AuthService {
         }
     }
 
-    async refreshToken(refreshToken: string){
+    async logout(sessionId: number){
+        const session = await this.sessionRepository.findOneBy({id: sessionId});
+
+        if(!session || !session.isValid) throw new HttpException('Session not found or already invalidated', HttpStatus.BAD_REQUEST);
+
+        session.isValid = false;
+
+        await this.sessionRepository.save(session);
+
+        return {message: 'Logout successfully'};
+    }
+
+    async refreshToken(token: string){
         try {
              
-            const payload = this.jwtService.verify( refreshToken, {
-                secret: 'mySecretKey',
-            });
+            const sessions = await this.sessionRepository.find({where: {isValid:true}});
 
-            // Verificar que el refresh token sea el mismo 
-            const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+            let session: UserSession | undefined;
 
-            if(!user || !user.refreshToken) throw new HttpException('User not found or token invalid', HttpStatus.BAD_REQUEST);
+            for (const s of sessions) {
+                const match = await bcrypt.compare(token, s.refreshToken);
+                if (match) {
+                    session = s;
+                    break;
+                }
+            }
 
-            // Comparar token recibido y BD
-            const refreshTokenMatches = await bcrypt.compare(refreshToken, user.refreshToken);
+            if(!session) throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
 
-            if(!refreshTokenMatches) throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
+            if(session.expiresAt && session.expiresAt.getTime() < Date.now()){
+                session.isValid = false;
+                await this.sessionRepository.save(session);
+                throw new HttpException('Refresh token expired',HttpStatus.UNAUTHORIZED);
+            }
 
-            // Generar token
+            const payload: JwtPayload = {email: session.user.email, sub: session.user.id};
+            
             const {accessToken, refreshToken: newRefreshToken} = await this.generateTokens(payload);
 
-            const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10);
+            const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken,10);
+            
+            session.refreshToken = hashedNewRefreshToken;
 
-            await this.userRepository.update(user.id, {refreshToken: hashedNewRefreshToken})
+            await this.sessionRepository.save(session);
 
-            return { accessToken, refreshToken: newRefreshToken};
+            return {accessToken, refreshToken: newRefreshToken};
 
         } catch (error) {
             console.log(error);
@@ -162,5 +193,9 @@ export class AuthService {
         });
         
         return { accessToken, refreshToken };
+    }
+
+    private createPayload(user: User): JwtPayload{
+        return {email: user.email, sub: user.id};
     }
 }

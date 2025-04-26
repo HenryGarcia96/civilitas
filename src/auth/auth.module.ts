@@ -12,6 +12,7 @@ import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { PasswordResetTokenService } from './password-reset-token.service';
 import { RolesGuard } from './guards/roles.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { SessionsModule } from 'src/sessions/sessions.module';
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
       inject: [ConfigService]
     }),
     UsersModule,
-    MailModule
+    MailModule,
+    SessionsModule,
   ],
   providers: [AuthService, JwtStrategy, PasswordResetTokenService, RolesGuard, JwtAuthGuard],
   controllers: [AuthController, PasswordResetTokenAdminController]

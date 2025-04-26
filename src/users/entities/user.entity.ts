@@ -1,4 +1,5 @@
 import { Role } from 'src/roles/entities/role.entity';
+import { UserSession } from 'src/sessions/entities/user-session.entity';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToMany, JoinTable, OneToMany } from 'typeorm';
 
 @Entity()
@@ -24,9 +25,6 @@ export class User {
   @CreateDateColumn({ name: 'fecha_registro' })
   fechaRegistro: Date;
 
-  @Column({nullable:true})
-  refreshToken: string;
-
   @ManyToMany(() => Role, role => role.usuarios, {cascade:true})
   @JoinTable({
     name: 'users_has_roles',
@@ -34,4 +32,7 @@ export class User {
     inverseJoinColumn: {name: 'role_id', referencedColumnName: 'id'}
   })
   roles: Role[];
+
+  @OneToMany(()=> UserSession, session => session.user)
+  sessions: UserSession[];
 }

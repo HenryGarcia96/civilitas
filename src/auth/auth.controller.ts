@@ -1,20 +1,30 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { AuthGuard } from '@nestjs/passport';
 import { PasswordResetTokenService } from './password-reset-token.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
+import { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService){}
 
     @Post('login')
-    async login(@Body() loginDto: LoginDto){
-        return this.authService.login(loginDto);
+    async login(@Body() loginDto: LoginDto, @Req() req: Request){
+        const userAgent = req.headers['user-agent'] || 'unknown';
+        const ipAddress = req.ip || 'unknown';
+        return this.authService.login(loginDto, userAgent as string, ipAddress);
+    }
+
+    @Post('logout')
+    @UseGuards(JwtAuthGuard)
+    @HttpCode(200)
+    async logout(@Req() req: any){
+        const sessionId= req.user.sessionId;
+        return await this.authService.logout(sessionId);
     }
 
     @Post('refresh')

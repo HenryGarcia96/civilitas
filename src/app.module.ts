@@ -9,6 +9,7 @@ import { ormConfig } from './config/ormconfig';
 import { ConfigModule } from '@nestjs/config';
 import { MailService } from './mail/mail.service';
 import { MailModule } from './mail/mail.module';
+import { SessionsModule } from './sessions/sessions.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { MailModule } from './mail/mail.module';
     RolesModule,
     AuthModule,
     MailModule,
+    SessionsModule,
   ],
   controllers: [AppController],
   providers: [AppService, MailService],
