@@ -51,23 +51,31 @@ export class AuthService {
     
             if (!passwordMatches) throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
     
+            const session = this.sessionRepository.create({
+                user,
+                refreshToken:  '',
+                userAgent,
+                ipAddress,
+                expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+             });
+             await this.sessionRepository.save(session);
+
             // JWToken
-            const payload: JwtPayload = this.createPayload(user);
+            const payload: JwtPayload = { 
+                email: user.email, 
+                sub: user.id,
+                sessionId: session.id, 
+              };
     
             const {accessToken, refreshToken} = await this.generateTokens(payload);
     
             // Insertar token de refresco al user
             const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
-            const session = this.sessionRepository.create({
-               user,
-               refreshToken:  hashedRefreshToken,
-               userAgent,
-               ipAddress,
-               expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
-            });
+            session.refreshToken = hashedRefreshToken;
+
             await this.sessionRepository.save(session);
-    
+            
             // Regresar tokens de acceso
             return { accessToken, refreshToken};
         } catch (error) {
@@ -90,30 +98,34 @@ export class AuthService {
 
     async refreshToken(token: string){
         try {
-             
-            const sessions = await this.sessionRepository.find({where: {isValid:true}});
+            const payload = this.jwtService.verify<JwtPayload>(token, {
+                secret: process.env.JWT_SECRET
+            });
 
-            let session: UserSession | undefined;
+            const session = await this.sessionRepository.findOne({
+                where: {id: payload.sessionId, isValid:true},
+                relations: ['user']
+            });
 
-            for (const s of sessions) {
-                const match = await bcrypt.compare(token, s.refreshToken);
-                if (match) {
-                    session = s;
-                    break;
-                }
-            }
+            if(!session) throw new HttpException('Session not found or invalid', HttpStatus.UNAUTHORIZED);
 
-            if(!session) throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
+            const ifRefreshTokenValid = await bcrypt.compare(token, session.refreshToken);
+
+            if(!ifRefreshTokenValid) throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
 
             if(session.expiresAt && session.expiresAt.getTime() < Date.now()){
                 session.isValid = false;
                 await this.sessionRepository.save(session);
-                throw new HttpException('Refresh token expired',HttpStatus.UNAUTHORIZED);
+                throw new HttpException('Refresh token expired', HttpStatus.UNAUTHORIZED);
             }
 
-            const payload: JwtPayload = {email: session.user.email, sub: session.user.id};
-            
-            const {accessToken, refreshToken: newRefreshToken} = await this.generateTokens(payload);
+            const newPayload: JwtPayload = {
+                email: session.user.email,
+                sub: session.user.id,
+                sessionId: session.id
+            }
+
+            const {accessToken, refreshToken: newRefreshToken} = await this.generateTokens(newPayload);
 
             const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken,10);
             
@@ -122,6 +134,7 @@ export class AuthService {
             await this.sessionRepository.save(session);
 
             return {accessToken, refreshToken: newRefreshToken};
+
 
         } catch (error) {
             console.log(error);
@@ -178,7 +191,8 @@ export class AuthService {
     public async generateTokens(payload: JwtPayload){
         const accessToken = this.jwtService.sign({
             email: payload.email,
-            sub: payload.sub
+            sub: payload.sub,
+            sessionId: payload.sessionId,
         }, {
             secret: 'mySecretKey',
             expiresIn: '15m',
@@ -186,16 +200,13 @@ export class AuthService {
     
         const refreshToken = this.jwtService.sign({
             email: payload.email,
-            sub: payload.sub
+            sub: payload.sub,
+            sessionId: payload.sessionId,
         }, {
             secret: 'mySecretKey',
             expiresIn: '30d',
         });
         
         return { accessToken, refreshToken };
-    }
-
-    private createPayload(user: User): JwtPayload{
-        return {email: user.email, sub: user.id};
     }
 }
