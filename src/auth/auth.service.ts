@@ -12,12 +12,15 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { PasswordResetTokenService } from './password-reset-token.service';
 import { UserSession } from 'src/sessions/entities/user-session.entity';
 import { RegisterDto } from './dto/register.dto';
+import { Role } from 'src/roles/entities/role.entity';
 
 @Injectable()
 export class AuthService {
     constructor(
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
+        @InjectRepository(Role)
+        private readonly roleRepository: Repository<Role>,
         private readonly userService: UsersService,
         private readonly mailService: MailService,
         private readonly jwtService: JwtService,
@@ -37,7 +40,7 @@ export class AuthService {
         return null;
     }
 
-    async register(registerDto: RegisterDto, userAgent: string, ipAddress:string){
+    async registerClient(registerDto: RegisterDto, userAgent: string, ipAddress:string){
         const existingUser = await this.userRepository.findOne({
             where: {email: registerDto.email}
         });
@@ -50,6 +53,14 @@ export class AuthService {
             ... registerDto,
             password: hashedPassword,
         });
+
+        await this.userRepository.save(user);
+
+        const roleEntity = await this.roleRepository.findOne({where: {name: 'solicitante'}});
+
+        if(!roleEntity) throw new HttpException('Role not found', HttpStatus.BAD_REQUEST);
+
+        user.roles = [roleEntity];
 
         await this.userRepository.save(user);
 
@@ -111,7 +122,7 @@ export class AuthService {
             const {accessToken, refreshToken} = await this.generateTokens(payload);
     
             // Insertar token de refresco al user
-            session.refreshToken = await bcrypt.hash(refreshToken, 10);
+            session.refreshToken = refreshToken;
 
             await this.sessionRepository.save(session);
             

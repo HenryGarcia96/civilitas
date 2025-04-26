@@ -13,11 +13,11 @@ import { RegisterDto } from './dto/register.dto';
 export class AuthController {
     constructor(private readonly authService: AuthService){}
 
-    @Post('register')
+    @Post('register-client')
     async register(@Body() registerDto: RegisterDto, @Req() req: Request){
         const userAgent = req.headers['user-agent'] || 'unknown';
         const ipAddress = req.ip || 'unknown';
-        return this.authService.register(registerDto, userAgent as string, ipAddress);
+        return this.authService.registerClient(registerDto, userAgent as string, ipAddress);
     }
 
     @Post('login')
