@@ -14,7 +14,7 @@ export class AuthController {
     constructor(private readonly authService: AuthService){}
 
     @Post('register-client')
-    async register(@Body() registerDto: RegisterDto, @Req() req: Request){
+    async registerClient(@Body() registerDto: RegisterDto, @Req() req: Request){
         const userAgent = req.headers['user-agent'] || 'unknown';
         const ipAddress = req.ip || 'unknown';
         return this.authService.registerClient(registerDto, userAgent as string, ipAddress);
