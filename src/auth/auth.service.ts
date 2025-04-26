@@ -11,6 +11,7 @@ import { MailService } from 'src/mail/mail.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { PasswordResetTokenService } from './password-reset-token.service';
 import { UserSession } from 'src/sessions/entities/user-session.entity';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
@@ -34,6 +35,46 @@ export class AuthService {
         }
 
         return null;
+    }
+
+    async register(registerDto: RegisterDto, userAgent: string, ipAddress:string){
+        const existingUser = await this.userRepository.findOne({
+            where: {email: registerDto.email}
+        });
+
+        if(existingUser) throw new HttpException('Email is already taken', HttpStatus.BAD_REQUEST);
+
+        const hashedPassword = await bcrypt.hash(registerDto.password,10);
+
+        const user = this.userRepository.create({
+            ... registerDto,
+            password: hashedPassword,
+        });
+
+        await this.userRepository.save(user);
+
+        const session = this.sessionRepository.create({
+            user,
+            refreshToken:  '',
+            userAgent,
+            ipAddress,
+            expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+        });
+        
+        await this.sessionRepository.save(session);
+
+        const payload: JwtPayload = {email:user.email, sub:user.id, sessionId: session.id};
+
+        const {accessToken, refreshToken} = await this.generateTokens(payload);
+
+        const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+        session.refreshToken = await bcrypt.hash(refreshToken, 10);
+
+        await this.sessionRepository.save(session);
+
+        return {accessToken, refreshToken};
+
     }
 
     async login(loginDto: LoginDto, userAgent: string, ipAddress: string){
@@ -70,9 +111,7 @@ export class AuthService {
             const {accessToken, refreshToken} = await this.generateTokens(payload);
     
             // Insertar token de refresco al user
-            const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-
-            session.refreshToken = hashedRefreshToken;
+            session.refreshToken = await bcrypt.hash(refreshToken, 10);
 
             await this.sessionRepository.save(session);
             

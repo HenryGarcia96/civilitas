@@ -7,10 +7,18 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
 import { Request } from 'express';
+import { RegisterDto } from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService){}
+
+    @Post('register')
+    async register(@Body() registerDto: RegisterDto, @Req() req: Request){
+        const userAgent = req.headers['user-agent'] || 'unknown';
+        const ipAddress = req.ip || 'unknown';
+        return this.authService.register(registerDto, userAgent as string, ipAddress);
+    }
 
     @Post('login')
     async login(@Body() loginDto: LoginDto, @Req() req: Request){
