@@ -28,8 +28,8 @@ export class AuthService {
     async validateUser(email:string, password:string): Promise<any>{
         const user = await this.userRepository.findOne({where: {email: email}});
 
-        if(user && user.password === password){
-            const {password, ...result} = user;
+        if (user && await bcrypt.compare(password, user.password)) {
+            const { password, ...result } = user;
             return result;
         }
 
@@ -80,7 +80,7 @@ export class AuthService {
             return { accessToken, refreshToken};
         } catch (error) {
             console.log(error);
-            throw new HttpException('Refresh token expired or invalid', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('Login failed', HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -109,9 +109,9 @@ export class AuthService {
 
             if(!session) throw new HttpException('Session not found or invalid', HttpStatus.UNAUTHORIZED);
 
-            const ifRefreshTokenValid = await bcrypt.compare(token, session.refreshToken);
+            const isRefreshTokenValid  = await bcrypt.compare(token, session.refreshToken);
 
-            if(!ifRefreshTokenValid) throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
+            if(!isRefreshTokenValid ) throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
 
             if(session.expiresAt && session.expiresAt.getTime() < Date.now()){
                 session.isValid = false;

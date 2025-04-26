@@ -34,7 +34,6 @@ export class AuthController {
     }
 
     @Post('forgot-password')
-
     @HttpCode(HttpStatus.ACCEPTED)
     async resetPassword(@Body() body:{ email: string}){
         return this.authService.sendPasswordResetLink(body.email);
