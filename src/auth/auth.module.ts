@@ -13,16 +13,17 @@ import { PasswordResetTokenService } from './password-reset-token.service';
 import { RolesGuard } from './guards/roles.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SessionsModule } from 'src/sessions/sessions.module';
+import { Role } from 'src/roles/entities/role.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
-    TypeOrmModule.forFeature([User,PasswordResetToken]),
+    TypeOrmModule.forFeature([User,PasswordResetToken, Role]),
     JwtModule.registerAsync({
       imports:[ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.secret'),
-        signOptions: { expiresIn: configService.get<string>('jwt.expireIn')},
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRATION_TIME')},
       }),
       inject: [ConfigService]
     }),

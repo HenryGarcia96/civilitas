@@ -13,6 +13,7 @@ import { PasswordResetTokenService } from './password-reset-token.service';
 import { UserSession } from 'src/sessions/entities/user-session.entity';
 import { RegisterDto } from './dto/register.dto';
 import { Role } from 'src/roles/entities/role.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +25,7 @@ export class AuthService {
         private readonly userService: UsersService,
         private readonly mailService: MailService,
         private readonly jwtService: JwtService,
+        private readonly configService: ConfigService,
         private readonly tokenService: PasswordResetTokenService,
         @InjectRepository(UserSession)
         private readonly sessionRepository: Repository<UserSession>
@@ -148,8 +150,9 @@ export class AuthService {
 
     async refreshToken(token: string){
         try {
+            const jwtSecret = this.configService.get<string>('JWT_SECRET');
             const payload = this.jwtService.verify<JwtPayload>(token, {
-                secret: process.env.JWT_SECRET
+                secret: jwtSecret
             });
 
             const session = await this.sessionRepository.findOne({
@@ -201,8 +204,9 @@ export class AuthService {
 
         const expiresIn = 60 * 60;
         
+        const jwtSecret = this.configService.get<string>('JWT_SECRET');
         const resetToken = this.jwtService.sign(payload, {
-            secret: process.env.JWT_SECRET,
+            secret: jwtSecret,
             expiresIn
         });
 
@@ -222,7 +226,8 @@ export class AuthService {
         let payload:any;
 
         try {
-            payload = this.jwtService.verify(token, { secret: process.env.JWT_SECRET});
+            const jwtSecret = this.configService.get<string>('JWT_SECRET');
+            payload = this.jwtService.verify(token, { secret: jwtSecret});
         } catch (error) {
             throw new HttpException('Invalid token', HttpStatus.BAD_REQUEST);
         }

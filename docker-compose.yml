@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres_db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+  app:
+    build: .
+    container_name: civilitas-app
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_TIME: ${JWT_EXPIRES_TIME}
+    env_file:
+      - .env
+
+volumes:
+  postgres_data:
