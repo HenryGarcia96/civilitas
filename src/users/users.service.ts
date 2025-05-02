@@ -18,11 +18,11 @@ export class UsersService {
 
   async create(createUserDto: CreateUserDto) {
      // Verificar si el correo electrónico ya existe en la base de datos
-     const existingUser = await this.userRepository.findOne({ where: { email: createUserDto.email } });
+    const existingUser = await this.userRepository.findOne({ where: { email: createUserDto.email } });
 
-     if (existingUser) {
-       throw new ConflictException('El correo electrónico ya está registrado');
-     }
+    if (existingUser) {
+      throw new ConflictException('El correo electrónico ya está registrado');
+    }
 
     const roles = await this.roleRepository.findBy({id: In(createUserDto.roles)});
 

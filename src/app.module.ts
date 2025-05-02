@@ -9,6 +9,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailService } from './mail/mail.service';
 import { MailModule } from './mail/mail.module';
 import { SessionsModule } from './sessions/sessions.module';
+import { RequestModule } from './request/request.module';
+import { MatchModule } from './match/match.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { SessionsModule } from './sessions/sessions.module';
     AuthModule,
     MailModule,
     SessionsModule,
+    RequestModule,
+    MatchModule,
   ],
   controllers: [AppController],
   providers: [AppService, MailService],

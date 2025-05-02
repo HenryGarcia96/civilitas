@@ -4,7 +4,6 @@ import { AuthController, PasswordResetTokenAdminController } from './auth.contro
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { JwtModule } from '@nestjs/jwt';
-import { JwtStrategy } from './strategies/local.strategy';
 import { UsersModule } from 'src/users/users.module';
 import { ConfigModule, ConfigService } from '@nestjs/config'; 
 import { MailModule } from 'src/mail/mail.module';
@@ -14,6 +13,7 @@ import { RolesGuard } from './guards/roles.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SessionsModule } from 'src/sessions/sessions.module';
 import { Role } from 'src/roles/entities/role.entity';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [

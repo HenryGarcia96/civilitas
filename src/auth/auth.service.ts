@@ -244,12 +244,15 @@ export class AuthService {
     }
 
     public async generateTokens(payload: JwtPayload){
+        
+        const secret = this.configService.get<string>('JWT_SECRET');
+    
         const accessToken = this.jwtService.sign({
             email: payload.email,
             sub: payload.sub,
             sessionId: payload.sessionId,
         }, {
-            secret: 'mySecretKey',
+            secret,
             expiresIn: '15m',
         });
     
@@ -258,7 +261,7 @@ export class AuthService {
             sub: payload.sub,
             sessionId: payload.sessionId,
         }, {
-            secret: 'mySecretKey',
+            secret,
             expiresIn: '30d',
         });
         
